@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+!.env.example
+
+# Data & media (large files, generated)
+data/translations_cache.json
+media/
+
+# IDE
+.idea/
+.vscode/
+
+# Claude
+.claude/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# Alembic
+alembic/versions/__pycache__/
