@@ -67,4 +67,3 @@ async def get_deck_stats(
     current_user: Annotated[UserRead, Depends(get_current_user)],
 ) -> DeckStats:
     return await ReviewService(uow).get_deck_stats(current_user.id, deck_id)
-
