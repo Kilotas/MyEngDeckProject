@@ -4,9 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from src.core.deps import get_current_user, get_uow
+from src.schemas.card import CardRead
 from src.schemas.deck import DeckCreate, DeckRead, DeckUpdate
+from src.schemas.review import DeckStats
 from src.schemas.user import UserRead
 from src.services.deck import DeckService
+from src.services.review import ReviewService
 from src.uow.sqlalchemy import SQLAlchemyUoW
 
 router = APIRouter(prefix="/decks", tags=["decks"])
@@ -55,3 +58,13 @@ async def delete_deck(
     current_user: Annotated[UserRead, Depends(get_current_user)],
 ) -> None:
     await DeckService(uow).delete(deck_id, user_id=current_user.id)
+
+
+@router.get("/{deck_id}/stats", response_model=DeckStats)
+async def get_deck_stats(
+    deck_id: uuid.UUID,
+    uow: Annotated[SQLAlchemyUoW, Depends(get_uow)],
+    current_user: Annotated[UserRead, Depends(get_current_user)],
+) -> DeckStats:
+    return await ReviewService(uow).get_deck_stats(current_user.id, deck_id)
+

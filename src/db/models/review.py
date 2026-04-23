@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
-from sqlalchemy import Float, Integer, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import Float, Integer, ForeignKey, DateTime, UniqueConstraint, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.models.base import Base, uuid_pk
@@ -38,6 +38,7 @@ class Review(Base):
     interval: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # дней
     repetitions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
+    introduced_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     next_review_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, nullable=False, index=True

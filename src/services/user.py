@@ -4,7 +4,7 @@ import bcrypt
 
 from src.core.exceptions import AlreadyExistsError, NotFoundError
 from src.db.models.user import User
-from src.schemas.user import UserCreate, UserRead
+from src.schemas.user import UserCreate, UserRead, UserUpdate
 from src.uow.base import AbstractUoW
 
 
@@ -41,6 +41,14 @@ class UserService:
             user = await uow.users.get(user_id)
         if not user:
             raise NotFoundError("User not found")
+        return UserRead.model_validate(user)
+
+    async def update_settings(self, user_id: uuid.UUID, data: UserUpdate) -> UserRead:
+        async with self._uow as uow:
+            user = await uow.users.get(user_id)
+            if not user:
+                raise NotFoundError("User not found")
+            user.daily_new_limit = data.daily_new_limit
         return UserRead.model_validate(user)
 
     def verify_password(self, plain: str, hashed: str) -> bool:

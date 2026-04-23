@@ -1,7 +1,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.models.base import Base, TimestampMixin, uuid_pk
@@ -19,6 +19,7 @@ class User(Base, TimestampMixin):
     username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    daily_new_limit: Mapped[int] = mapped_column(Integer, default=20, nullable=False, server_default="20")
 
     decks: Mapped[list["Deck"]] = relationship("Deck", back_populates="owner", lazy="noload")
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="user", lazy="noload")

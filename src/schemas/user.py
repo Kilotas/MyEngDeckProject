@@ -15,6 +15,11 @@ class UserRead(BaseModel):
     email: EmailStr
     username: str
     is_active: bool
+    daily_new_limit: int
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserUpdate(BaseModel):
+    daily_new_limit: int

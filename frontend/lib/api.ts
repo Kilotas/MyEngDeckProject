@@ -103,3 +103,45 @@ export function submitReview(cardId: string, quality: number): Promise<Review> {
     body: JSON.stringify({ card_id: cardId, quality }),
   })
 }
+
+export type DeckStats = {
+  total_cards: number
+  new_cards: number
+  reviewed_cards: number
+  due_cards: number
+  learned_cards: number
+  avg_interval: number
+  learn_available: number
+}
+
+export type User = {
+  id: string
+  email: string
+  username: string
+  is_active: boolean
+  daily_new_limit: number
+  created_at: string
+}
+
+export function getDeckStats(deckId: string): Promise<DeckStats> {
+  return apiFetch(`/decks/${deckId}/stats`)
+}
+
+export function getLearnCards(deckId: string): Promise<Card[]> {
+  return apiFetch(`/decks/${deckId}/learn-cards`)
+}
+
+export function getReviewCards(deckId: string): Promise<Card[]> {
+  return apiFetch(`/decks/${deckId}/review-cards`)
+}
+
+export function getMe(): Promise<User> {
+  return apiFetch('/users/me')
+}
+
+export function updateMe(daily_new_limit: number): Promise<User> {
+  return apiFetch('/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ daily_new_limit }),
+  })
+}

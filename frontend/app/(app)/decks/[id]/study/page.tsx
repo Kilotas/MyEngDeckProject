@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
-import { getDeckCards, getDueReviews, submitReview, type Card, type Review } from '@/lib/api'
+import { useEffect, useState, use, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { getLearnCards, getReviewCards, submitReview, type Card } from '@/lib/api'
 import { isAuthenticated } from '@/lib/auth'
+import Link from 'next/link'
 
 const MINIO_URL = process.env.NEXT_PUBLIC_STORAGE_URL ?? 'http://localhost:9000/reword'
 
@@ -13,13 +14,14 @@ const QUALITY_LABELS: { q: number; label: string; color: string }[] = [
   { q: 5, label: 'Запомнил', color: 'bg-emerald-700 hover:bg-emerald-600' },
 ]
 
-type StudyItem = { card: Card; review: Review | null }
+type Mode = 'learn' | 'review'
 
-export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
-  const { id } = use(props.params)
+function StudyContent({ id }: { id: string }) {
+  const searchParams = useSearchParams()
+  const mode = (searchParams.get('mode') ?? 'learn') as Mode
   const router = useRouter()
 
-  const [queue, setQueue] = useState<StudyItem[]>([])
+  const [cards, setCards] = useState<Card[]>([])
   const [index, setIndex] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -30,26 +32,15 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
   useEffect(() => {
     if (!isAuthenticated()) { router.replace('/login'); return }
 
-    Promise.all([getDeckCards(id), getDueReviews()])
-      .then(([cards, reviews]) => {
-        const reviewMap = new Map(reviews.map(r => [r.card_id, r]))
-        const dueCardIds = new Set(reviews.map(r => r.card_id))
-
-        const due: StudyItem[] = cards
-          .filter(c => dueCardIds.has(c.id))
-          .map(c => ({ card: c, review: reviewMap.get(c.id) ?? null }))
-
-        const fresh: StudyItem[] = cards
-          .filter(c => !dueCardIds.has(c.id))
-          .map(c => ({ card: c, review: null }))
-
-        const items = [...due, ...fresh]
-        if (items.length === 0) setDone(true)
-        setQueue(items)
+    const fetcher = mode === 'review' ? getReviewCards(id) : getLearnCards(id)
+    fetcher
+      .then(cs => {
+        if (cs.length === 0) setDone(true)
+        setCards(cs)
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [id, router])
+  }, [id, mode, router])
 
   function playAudio(audioPath: string) {
     const audio = new Audio(`${MINIO_URL}/${audioPath}`)
@@ -58,7 +49,7 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
 
   function handleFlip() {
     setFlipped(true)
-    const card = queue[index]?.card
+    const card = cards[index]
     if (card?.audio_path) playAudio(card.audio_path)
   }
 
@@ -66,9 +57,9 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
     if (submitting) return
     setSubmitting(true)
     try {
-      await submitReview(queue[index].card.id, quality)
+      await submitReview(cards[index].id, quality)
       const next = index + 1
-      if (next >= queue.length) {
+      if (next >= cards.length) {
         setDone(true)
       } else {
         setIndex(next)
@@ -81,6 +72,8 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
     }
   }
 
+  const modeLabel = mode === 'review' ? 'Повторение' : 'Учить'
+
   if (loading) return <p className="text-zinc-500 text-sm">Loading…</p>
   if (error) return <p className="text-red-400 text-sm">{error}</p>
 
@@ -88,7 +81,9 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
         <p className="text-4xl">🎉</p>
-        <h2 className="text-xl font-semibold">На сегодня всё!</h2>
+        <h2 className="text-xl font-semibold">
+          {mode === 'review' ? 'Все повторения сделаны!' : 'Новые слова на сегодня изучены!'}
+        </h2>
         <p className="text-zinc-400 text-sm">Возвращайтесь завтра для следующей сессии.</p>
         <button
           onClick={() => router.push('/decks')}
@@ -100,23 +95,32 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
     )
   }
 
-  const item = queue[index]
-  if (!item) return null
+  const card = cards[index]
+  if (!card) return null
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between text-sm text-zinc-500">
-        <button onClick={() => router.push('/decks')} className="hover:text-zinc-300 transition-colors">
+        <Link href="/decks" className="hover:text-zinc-300 transition-colors">
           ← Колоды
-        </button>
-        <span>{index + 1} / {queue.length}</span>
+        </Link>
+        <div className="flex items-center gap-3">
+          <span className={`text-xs px-2 py-0.5 rounded-full ${
+            mode === 'review' ? 'bg-blue-900/50 text-blue-300' : 'bg-emerald-900/50 text-emerald-300'
+          }`}>
+            {modeLabel}
+          </span>
+          <span>{index + 1} / {cards.length}</span>
+        </div>
       </div>
 
       <div
         onClick={!flipped ? handleFlip : undefined}
-        className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-8 min-h-[260px] flex flex-col items-center justify-center gap-4 transition-colors ${!flipped ? 'cursor-pointer hover:border-zinc-700' : ''}`}
+        className={`rounded-2xl border border-zinc-800 bg-zinc-900 p-8 min-h-[260px] flex flex-col items-center justify-center gap-4 transition-colors ${
+          !flipped ? 'cursor-pointer hover:border-zinc-700' : ''
+        }`}
       >
-        <p className="text-3xl font-semibold tracking-tight">{item.card.word}</p>
+        <p className="text-3xl font-semibold tracking-tight">{card.word}</p>
 
         {!flipped && (
           <p className="text-zinc-500 text-sm mt-2">Нажмите чтобы показать</p>
@@ -125,10 +129,10 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
         {flipped && (
           <>
             <div className="w-12 h-px bg-zinc-700" />
-            <p className="text-xl text-zinc-300">{item.card.translation}</p>
-            {item.card.audio_path && (
+            <p className="text-xl text-zinc-300">{card.translation}</p>
+            {card.audio_path && (
               <button
-                onClick={() => playAudio(item.card.audio_path!)}
+                onClick={() => playAudio(card.audio_path!)}
                 className="mt-2 text-zinc-500 hover:text-zinc-300 transition-colors text-sm"
               >
                 🔊 Повторить
@@ -153,5 +157,14 @@ export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
         </div>
       )}
     </div>
+  )
+}
+
+export default function StudyPage(props: PageProps<'/decks/[id]/study'>) {
+  const { id } = use(props.params)
+  return (
+    <Suspense fallback={<p className="text-zinc-500 text-sm">Loading…</p>}>
+      <StudyContent id={id} />
+    </Suspense>
   )
 }

@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 
 from src.core.exceptions import NotFoundError
 from src.db.models.review import Review
-from src.schemas.review import ReviewRead
+from src.schemas.card import CardRead
+from src.schemas.review import ReviewRead, DeckStats
 from src.uow.base import AbstractUoW
 
 
@@ -41,6 +42,37 @@ class ReviewService:
             reviews = await uow.reviews.list_due(user_id, now)
         return [ReviewRead.model_validate(r) for r in reviews]
 
+    async def get_learn_cards(self, user_id: uuid.UUID, deck_id: uuid.UUID) -> list[CardRead]:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        async with self._uow as uow:
+            user = await uow.users.get(user_id)
+            daily_limit = user.daily_new_limit if user else 20
+            introduced_today = await uow.reviews.count_introduced_today(user_id, deck_id, today)
+            remaining = max(0, daily_limit - introduced_today)
+            if remaining == 0:
+                return []
+            cards = await uow.reviews.list_new_cards_for_deck(user_id, deck_id, remaining)
+        return [CardRead.model_validate(c) for c in cards]
+
+    async def get_review_cards(self, user_id: uuid.UUID, deck_id: uuid.UUID) -> list[CardRead]:
+        now = datetime.now(timezone.utc)
+        async with self._uow as uow:
+            cards = await uow.reviews.list_due_for_deck(user_id, deck_id, now)
+        return [CardRead.model_validate(c) for c in cards]
+
+    async def get_deck_stats(self, user_id: uuid.UUID, deck_id: uuid.UUID) -> DeckStats:
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        async with self._uow as uow:
+            user = await uow.users.get(user_id)
+            daily_limit = user.daily_new_limit if user else 20
+            introduced_today = await uow.reviews.count_introduced_today(user_id, deck_id, today)
+            data = await uow.reviews.get_deck_stats(user_id, deck_id, now)
+        remaining = max(0, daily_limit - introduced_today)
+        learn_available = min(remaining, data["new_cards"])
+        return DeckStats(**data, learn_available=learn_available)
+
     async def submit_review(self, user_id: uuid.UUID, card_id: uuid.UUID, quality: int) -> ReviewRead:
         if quality not in range(6):
             raise ValueError("Quality must be between 0 and 5")
@@ -58,6 +90,7 @@ class ReviewService:
                     easiness_factor=2.5,
                     interval=0,
                     repetitions=0,
+                    introduced_date=datetime.now(timezone.utc).date(),
                 )
                 await uow.reviews.add(review)
 

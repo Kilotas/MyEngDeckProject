@@ -18,12 +18,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Link href="/decks" className="font-semibold tracking-tight">
           Reword
         </Link>
-        <button
-          onClick={logout}
-          className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
-        >
-          Выйти
-        </button>
+        <div className="flex items-center gap-4">
+          <Link href="/settings" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+            Настройки
+          </Link>
+          <button
+            onClick={logout}
+            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            Выйти
+          </button>
+        </div>
       </header>
       <main className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">{children}</main>
     </div>

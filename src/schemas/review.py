@@ -15,3 +15,13 @@ class ReviewRead(BaseModel):
     next_review_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class DeckStats(BaseModel):
+    total_cards: int
+    new_cards: int
+    reviewed_cards: int
+    due_cards: int
+    learned_cards: int
+    avg_interval: float
+    learn_available: int
